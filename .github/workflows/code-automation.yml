@@ -18,9 +18,18 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.FinanceApp_Token }}
       
+      - name: Debug Info
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Issue title: ${{ github.event.issue.title }}"
+          echo "Labels: ${{ toJson(github.event.issue.labels) }}"
+      
       - name: Create Feature Branch
+        id: create-branch
         run: |
           BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr 'ı' 'i' | tr 'ş' 's' | tr 'ğ' 'g' | tr 'ü' 'u' | tr 'ö' 'o' | tr 'ç' 'c')"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "Creating branch: $BRANCH_NAME"
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git checkout -b "$BRANCH_NAME"
@@ -125,9 +134,10 @@ jobs:
           export default Login;
           EOL
 
+          echo "Login component created"
           git add .
           git commit -m "feat: Giriş sayfası oluşturuldu"
-          git push origin "$BRANCH_NAME"
+          git push origin "${{ steps.create-branch.outputs.branch_name }}"
       
       - name: Create PR
         uses: peter-evans/create-pull-request@v5
@@ -145,5 +155,5 @@ jobs:
             - [ ] Feature requirements met
             - [ ] Tests added
             - [ ] Documentation updated
-          branch: "${{ env.BRANCH_NAME }}"
+          branch: "${{ steps.create-branch.outputs.branch_name }}"
           base: main 
