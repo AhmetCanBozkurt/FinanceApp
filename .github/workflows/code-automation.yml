@@ -8,211 +8,169 @@ on:
     types:
       - completed
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
 jobs:
   check-and-fix:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'workflow_run' && 
-      github.event.workflow_run.conclusion == 'failure'
+      github.event.workflow_run.conclusion == 'failure' ||
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'feature-request'))
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
-          token: ${{ secrets.FinanceApp_Token }}
-      
-      - name: Analyze Previous Run
-        id: analyze
-        run: |
-          # Hata mesajını al
-          ERROR_LOG="${{ github.event.workflow_run.jobs[0].steps[*].conclusion }}"
-          
-          if echo "$ERROR_LOG" | grep -q "Dependencies lock file is not found"; then
-            echo "error_type=missing_lock_file" >> $GITHUB_OUTPUT
-          elif echo "$ERROR_LOG" | grep -q "package.json not found"; then
-            echo "error_type=missing_package_json" >> $GITHUB_OUTPUT
-          else
-            echo "error_type=unknown" >> $GITHUB_OUTPUT
-          fi
-      
-      - name: Fix Missing Files
-        if: steps.analyze.outputs.error_type == 'missing_lock_file' || steps.analyze.outputs.error_type == 'missing_package_json'
-        run: |
-          # package.json oluştur
-          echo '{
-            "name": "finance-app",
-            "version": "0.1.0",
-            "private": true,
-            "dependencies": {
-              "@testing-library/jest-dom": "^5.17.0",
-              "@testing-library/react": "^13.4.0",
-              "@testing-library/user-event": "^13.5.0",
-              "react": "^18.2.0",
-              "react-dom": "^18.2.0",
-              "react-scripts": "5.0.1",
-              "web-vitals": "^2.1.4",
-              "@mui/material": "^5.15.11",
-              "@mui/icons-material": "^5.15.11",
-              "@emotion/react": "^11.11.3",
-              "@emotion/styled": "^11.11.0"
-            },
-            "scripts": {
-              "start": "react-scripts start",
-              "build": "react-scripts build",
-              "test": "react-scripts test",
-              "eject": "react-scripts eject"
-            }
-          }' > package.json
-
-          # npm install çalıştır
-          npm install --legacy-peer-deps
-
-          # Değişiklikleri commit et
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-          git add package.json package-lock.json
-          git commit -m "fix: Eksik package.json ve lock dosyası eklendi"
-          git push origin main
-
-      - name: Trigger Original Workflow
-        run: |
-          # Son issue'yu bul
-          ISSUE_NUMBER=$(gh api repos/${{ github.repository }}/issues?state=open --jq '.[0].number')
-          
-          # Issue'ya yorum ekle ve yeniden tetikle
-          gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments \
-            --raw-field body="🔄 Otomatik düzeltme yapıldı. Workflow yeniden başlatılıyor."
-          
-          # Label'ı kaldır ve tekrar ekle
-          gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER/labels/${{ github.event.label.name }} --method DELETE
-          gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER/labels \
-            --raw-field labels[]="feature-request"
-
-  process-issue:
-    runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'feature-request')) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.FinanceApp_Token }}
+          token: ${{ secrets.FINANCEAPP_TOKEN }}
       
       - name: Setup Node.js
         uses: actions/setup-node@v2
         with:
           node-version: '18'
       
-      - name: Create Feature Branch
-        id: create-branch
+      - name: Check and Fix Dependencies
         run: |
-          BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr 'ı' 'i' | tr 'ş' 's' | tr 'ğ' 'g' | tr 'ü' 'u' | tr 'ö' 'o' | tr 'ç' 'c')"
-          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-          git checkout -b "$BRANCH_NAME"
-      
-      - name: Install Dependencies
-        run: npm install --legacy-peer-deps
-      
+          if [ ! -f "package.json" ]; then
+            echo "Creating package.json..."
+            echo '{
+              "name": "finance-app",
+              "version": "0.1.0",
+              "private": true,
+              "dependencies": {
+                "@testing-library/jest-dom": "^5.17.0",
+                "@testing-library/react": "^13.4.0",
+                "@testing-library/user-event": "^13.5.0",
+                "react": "^18.2.0",
+                "react-dom": "^18.2.0",
+                "react-scripts": "5.0.1",
+                "web-vitals": "^2.1.4",
+                "@mui/material": "^5.15.11",
+                "@mui/icons-material": "^5.15.11",
+                "@emotion/react": "^11.11.3",
+                "@emotion/styled": "^11.11.0"
+              },
+              "scripts": {
+                "start": "react-scripts start",
+                "build": "react-scripts build",
+                "test": "react-scripts test",
+                "eject": "react-scripts eject"
+              }
+            }' > package.json
+          fi
+
+          echo "Installing dependencies..."
+          npm install --legacy-peer-deps
+          
+          echo "Committing changes..."
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add package.json package-lock.json
+          git commit -m "fix: Dependencies added and lock file generated"
+          git push origin ${GITHUB_REF#refs/heads/}
+
       - name: Generate Code
+        if: github.event_name == 'issues' && contains(github.event.issue.title, 'Giriş sayfası')
         run: |
-          if [[ "${{ github.event.issue.title }}" == *"Giriş sayfası"* ]]; then
-            mkdir -p src/components/auth
-            cat > src/components/auth/Login.js << 'EOL'
-            import React, { useState } from 'react';
-            import { Box, Button, TextField, Typography, Container, Link } from '@mui/material';
+          mkdir -p src/components/auth
+          cat > src/components/auth/Login.js << 'EOL'
+          import React, { useState } from 'react';
+          import { Box, Button, TextField, Typography, Container, Link } from '@mui/material';
 
-            const Login = () => {
-              const [formData, setFormData] = useState({
-                email: '',
-                password: ''
+          const Login = () => {
+            const [formData, setFormData] = useState({
+              email: '',
+              password: ''
+            });
+
+            const handleChange = (e) => {
+              setFormData({
+                ...formData,
+                [e.target.name]: e.target.value
               });
+            };
 
-              const handleChange = (e) => {
-                setFormData({
-                  ...formData,
-                  [e.target.name]: e.target.value
-                });
-              };
+            const handleSubmit = (e) => {
+              e.preventDefault();
+              console.log('Form submitted:', formData);
+            };
 
-              const handleSubmit = (e) => {
-                e.preventDefault();
-                console.log('Form submitted:', formData);
-              };
-
-              return (
-                <Container component="main" maxWidth="xs">
-                  <Box
-                    sx={{
-                      marginTop: 8,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Typography component="h1" variant="h5">
+            return (
+              <Container component="main" maxWidth="xs">
+                <Box
+                  sx={{
+                    marginTop: 8,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Typography component="h1" variant="h5">
+                    Giriş Yap
+                  </Typography>
+                  <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+                    <TextField
+                      margin="normal"
+                      required
+                      fullWidth
+                      id="email"
+                      label="E-posta Adresi"
+                      name="email"
+                      autoComplete="email"
+                      autoFocus
+                      value={formData.email}
+                      onChange={handleChange}
+                    />
+                    <TextField
+                      margin="normal"
+                      required
+                      fullWidth
+                      name="password"
+                      label="Şifre"
+                      type="password"
+                      id="password"
+                      autoComplete="current-password"
+                      value={formData.password}
+                      onChange={handleChange}
+                    />
+                    <Button
+                      type="submit"
+                      fullWidth
+                      variant="contained"
+                      sx={{ mt: 3, mb: 2 }}
+                    >
                       Giriş Yap
-                    </Typography>
-                    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-                      <TextField
-                        margin="normal"
-                        required
-                        fullWidth
-                        id="email"
-                        label="E-posta Adresi"
-                        name="email"
-                        autoComplete="email"
-                        autoFocus
-                        value={formData.email}
-                        onChange={handleChange}
-                      />
-                      <TextField
-                        margin="normal"
-                        required
-                        fullWidth
-                        name="password"
-                        label="Şifre"
-                        type="password"
-                        id="password"
-                        autoComplete="current-password"
-                        value={formData.password}
-                        onChange={handleChange}
-                      />
-                      <Button
-                        type="submit"
-                        fullWidth
-                        variant="contained"
-                        sx={{ mt: 3, mb: 2 }}
-                      >
-                        Giriş Yap
-                      </Button>
-                      <Box sx={{ textAlign: 'center' }}>
+                    </Button>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Link href="#" variant="body2">
+                        Şifremi Unuttum
+                      </Link>
+                      <Box sx={{ mt: 1 }}>
                         <Link href="#" variant="body2">
-                          Şifremi Unuttum
+                          Hesabınız yok mu? Kayıt Ol
                         </Link>
-                        <Box sx={{ mt: 1 }}>
-                          <Link href="#" variant="body2">
-                            Hesabınız yok mu? Kayıt Ol
-                          </Link>
-                        </Box>
                       </Box>
                     </Box>
                   </Box>
-                </Container>
-              );
-            };
+                </Box>
+              </Container>
+            );
+          };
 
-            export default Login;
-            EOL
-          fi
+          export default Login;
+          EOL
 
           git add .
-          git commit -m "feat: ${{ github.event.issue.title }} implementasyonu"
-          git push origin "${{ steps.create-branch.outputs.branch_name }}"
-      
+          git commit -m "feat: Giriş sayfası oluşturuldu"
+          git push origin ${GITHUB_REF#refs/heads/}
+
       - name: Create PR
+        if: github.event_name == 'issues'
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.FinanceApp_Token }}
+          token: ${{ secrets.FINANCEAPP_TOKEN }}
           commit-message: "feat: ${{ github.event.issue.title }} implementasyonu"
           title: "✨ Feature: ${{ github.event.issue.title }}"
           body: |
@@ -225,5 +183,5 @@ jobs:
             - [ ] Feature requirements met
             - [ ] Tests added
             - [ ] Documentation updated
-          branch: "${{ steps.create-branch.outputs.branch_name }}"
+          branch: "feature/${{ github.event.issue.title }}"
           base: main 
