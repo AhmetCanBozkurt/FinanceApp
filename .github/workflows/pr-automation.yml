@@ -9,10 +9,18 @@ on:
 jobs:
   create-pr:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
+      
+      - name: Get changed files
+        id: file-changes
+        run: |
+          echo "files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | tr '\n' ' ')" >> $GITHUB_OUTPUT
       
       - name: Create or Update PR
         uses: peter-evans/create-pull-request@v5
@@ -32,10 +40,10 @@ jobs:
             - [ ] Documentation is updated
             
             ### 📦 Changed Files:
-            ```diff
+            ```
             ${{ steps.file-changes.outputs.files }}
             ```
-          branch: feature/automated-changes
+          branch: ${{ github.ref_name }}
           base: main
           labels: |
             automated-pr

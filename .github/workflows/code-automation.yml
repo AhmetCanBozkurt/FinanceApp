@@ -8,29 +8,29 @@ jobs:
   process-issue:
     runs-on: ubuntu-latest
     if: contains(github.event.issue.labels.*.name, 'feature-request')
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       
       - name: Create Feature Branch
         run: |
           BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
           git checkout -b $BRANCH_NAME
       
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '7.0.x'
-      
       - name: Setup Node.js
         uses: actions/setup-node@v2
         with:
           node-version: '18'
+          cache: 'npm'
       
-      - name: Implement Changes
-        run: |
-          # Burada Cursor Agent API'sini kullanarak kod değişikliklerini yapabilirsiniz
-          # Örnek: curl -X POST api.cursor.sh/v1/changes -d @issue.json
-          
+      - name: Install Dependencies
+        run: npm install
+      
       - name: Create PR
         uses: peter-evans/create-pull-request@v5
         with:
@@ -47,5 +47,5 @@ jobs:
             - [ ] Feature requirements met
             - [ ] Tests added
             - [ ] Documentation updated
-          branch: feature/automated-changes
+          branch: ${{ github.ref_name }}
           base: main 
