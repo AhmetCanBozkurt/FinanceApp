@@ -24,21 +24,30 @@ jobs:
           echo "Issue title: ${{ github.event.issue.title }}"
           echo "Labels: ${{ toJson(github.event.issue.labels) }}"
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+      
+      - name: Check and Create Lock File
+        run: |
+          if [ ! -f "package-lock.json" ]; then
+            echo "package-lock.json not found, creating it..."
+            npm install
+            git config --global user.name "GitHub Actions"
+            git config --global user.email "actions@github.com"
+            git add package-lock.json
+            git commit -m "chore: package-lock.json otomatik oluşturuldu"
+            git push origin main
+          fi
+      
       - name: Create Feature Branch
         id: create-branch
         run: |
           BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr 'ı' 'i' | tr 'ş' 's' | tr 'ğ' 'g' | tr 'ü' 'u' | tr 'ö' 'o' | tr 'ç' 'c')"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "Creating branch: $BRANCH_NAME"
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
           git checkout -b "$BRANCH_NAME"
-          
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '18'
-          cache: 'npm'
       
       - name: Install Dependencies
         run: npm install
