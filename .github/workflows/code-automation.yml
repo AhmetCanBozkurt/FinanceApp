@@ -2,7 +2,7 @@ name: Code Automation
 
 on:
   issues:
-    types: [opened, edited]
+    types: [opened, edited, labeled]
 
 jobs:
   process-issue:
@@ -20,11 +20,11 @@ jobs:
       
       - name: Create Feature Branch
         run: |
-          BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
+          BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr 'ı' 'i' | tr 'ş' 's' | tr 'ğ' 'g' | tr 'ü' 'u' | tr 'ö' 'o' | tr 'ç' 'c')"
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          git checkout -b $BRANCH_NAME
-      
+          git checkout -b "$BRANCH_NAME"
+          
       - name: Setup Node.js
         uses: actions/setup-node@v2
         with:
@@ -34,11 +34,106 @@ jobs:
       - name: Install Dependencies
         run: npm install
       
+      - name: Create Login Page
+        if: contains(github.event.issue.title, 'Giriş sayfası')
+        run: |
+          mkdir -p src/components/auth
+          cat > src/components/auth/Login.js << 'EOL'
+          import React, { useState } from 'react';
+          import { Box, Button, TextField, Typography, Container, Link } from '@mui/material';
+
+          const Login = () => {
+            const [formData, setFormData] = useState({
+              email: '',
+              password: ''
+            });
+
+            const handleChange = (e) => {
+              setFormData({
+                ...formData,
+                [e.target.name]: e.target.value
+              });
+            };
+
+            const handleSubmit = (e) => {
+              e.preventDefault();
+              console.log('Form submitted:', formData);
+            };
+
+            return (
+              <Container component="main" maxWidth="xs">
+                <Box
+                  sx={{
+                    marginTop: 8,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Typography component="h1" variant="h5">
+                    Giriş Yap
+                  </Typography>
+                  <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+                    <TextField
+                      margin="normal"
+                      required
+                      fullWidth
+                      id="email"
+                      label="E-posta Adresi"
+                      name="email"
+                      autoComplete="email"
+                      autoFocus
+                      value={formData.email}
+                      onChange={handleChange}
+                    />
+                    <TextField
+                      margin="normal"
+                      required
+                      fullWidth
+                      name="password"
+                      label="Şifre"
+                      type="password"
+                      id="password"
+                      autoComplete="current-password"
+                      value={formData.password}
+                      onChange={handleChange}
+                    />
+                    <Button
+                      type="submit"
+                      fullWidth
+                      variant="contained"
+                      sx={{ mt: 3, mb: 2 }}
+                    >
+                      Giriş Yap
+                    </Button>
+                    <Box sx={{ textAlign: 'center' }}>
+                      <Link href="#" variant="body2">
+                        Şifremi Unuttum
+                      </Link>
+                      <Box sx={{ mt: 1 }}>
+                        <Link href="#" variant="body2">
+                          Hesabınız yok mu? Kayıt Ol
+                        </Link>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              </Container>
+            );
+          };
+
+          export default Login;
+          EOL
+
+          git add .
+          git commit -m "feat: Giriş sayfası oluşturuldu"
+          git push origin "$BRANCH_NAME"
+      
       - name: Create PR
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.FinanceApp_Token }}
-          commit-message: "feat: Implement ${{ github.event.issue.title }}"
+          commit-message: "feat: ${{ github.event.issue.title }} implementasyonu"
           title: "✨ Feature: ${{ github.event.issue.title }}"
           body: |
             Closes #${{ github.event.issue.number }}
@@ -50,5 +145,5 @@ jobs:
             - [ ] Feature requirements met
             - [ ] Tests added
             - [ ] Documentation updated
-          branch: ${{ github.ref_name }}
+          branch: "${{ env.BRANCH_NAME }}"
           base: main 
