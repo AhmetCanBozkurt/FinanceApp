@@ -14,12 +14,11 @@ permissions:
   pull-requests: write
 
 jobs:
-  check-and-fix:
+  initial-setup:
     runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'workflow_run' && 
-      github.event.workflow_run.conclusion == 'failure' ||
-      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'feature-request'))
+    if: github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'feature-request')
+    outputs:
+      needs_fix: ${{ steps.check_deps.outputs.needs_fix }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -31,7 +30,31 @@ jobs:
         with:
           node-version: '18'
       
-      - name: Check and Fix Dependencies
+      - name: Check Dependencies
+        id: check_deps
+        run: |
+          if [ ! -f "package.json" ] || [ ! -f "package-lock.json" ]; then
+            echo "needs_fix=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_fix=false" >> $GITHUB_OUTPUT
+          fi
+
+  fix-dependencies:
+    needs: initial-setup
+    runs-on: ubuntu-latest
+    if: needs.initial-setup.outputs.needs_fix == 'true'
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.FINANCEAPP_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+      
+      - name: Fix Dependencies
         run: |
           if [ ! -f "package.json" ]; then
             echo "Creating package.json..."
@@ -71,8 +94,29 @@ jobs:
           git commit -m "fix: Dependencies added and lock file generated"
           git push origin ${GITHUB_REF#refs/heads/}
 
-      - name: Generate Code
-        if: github.event_name == 'issues' && contains(github.event.issue.title, 'Giriş sayfası')
+  generate-code:
+    needs: [initial-setup, fix-dependencies]
+    if: |
+      always() &&
+      (needs.initial-setup.result == 'success' || needs.fix-dependencies.result == 'success') &&
+      github.event_name == 'issues' &&
+      contains(github.event.issue.title, 'Giriş sayfası')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.FINANCEAPP_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+      
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+      
+      - name: Generate Login Page
         run: |
           mkdir -p src/components/auth
           cat > src/components/auth/Login.js << 'EOL'
@@ -167,7 +211,6 @@ jobs:
           git push origin ${GITHUB_REF#refs/heads/}
 
       - name: Create PR
-        if: github.event_name == 'issues'
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.FINANCEAPP_TOKEN }}
