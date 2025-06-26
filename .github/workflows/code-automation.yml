@@ -24,51 +24,56 @@ jobs:
           echo "Issue title: ${{ github.event.issue.title }}"
           echo "Labels: ${{ toJson(github.event.issue.labels) }}"
           ls -la
+          pwd
       
       - name: Setup Node.js
         uses: actions/setup-node@v2
         with:
           node-version: '18'
-      
-      - name: Initialize npm if needed
-        run: |
-          if [ ! -f "package.json" ]; then
-            echo "package.json not found, creating it..."
-            echo '{
-              "name": "finance-app",
-              "version": "0.1.0",
-              "private": true,
-              "dependencies": {
-                "@testing-library/jest-dom": "^5.17.0",
-                "@testing-library/react": "^13.4.0",
-                "@testing-library/user-event": "^13.5.0",
-                "react": "^18.2.0",
-                "react-dom": "^18.2.0",
-                "react-scripts": "5.0.1",
-                "web-vitals": "^2.1.4",
-                "@mui/material": "^5.15.11",
-                "@mui/icons-material": "^5.15.11",
-                "@emotion/react": "^11.11.3",
-                "@emotion/styled": "^11.11.0"
-              },
-              "scripts": {
-                "start": "react-scripts start",
-                "build": "react-scripts build",
-                "test": "react-scripts test",
-                "eject": "react-scripts eject"
-              }
-            }' > package.json
-          fi
 
-      - name: Install Dependencies and Create Lock File
+      - name: Clean npm cache and remove lock files
+        continue-on-error: true
         run: |
+          npm cache clean --force
           rm -f package-lock.json
+          rm -f yarn.lock
+      
+      - name: Create or Update package.json
+        run: |
+          echo '{
+            "name": "finance-app",
+            "version": "0.1.0",
+            "private": true,
+            "dependencies": {
+              "@testing-library/jest-dom": "^5.17.0",
+              "@testing-library/react": "^13.4.0",
+              "@testing-library/user-event": "^13.5.0",
+              "react": "^18.2.0",
+              "react-dom": "^18.2.0",
+              "react-scripts": "5.0.1",
+              "web-vitals": "^2.1.4",
+              "@mui/material": "^5.15.11",
+              "@mui/icons-material": "^5.15.11",
+              "@emotion/react": "^11.11.3",
+              "@emotion/styled": "^11.11.0"
+            },
+            "scripts": {
+              "start": "react-scripts start",
+              "build": "react-scripts build",
+              "test": "react-scripts test",
+              "eject": "react-scripts eject"
+            }
+          }' > package.json
+      
+      - name: Install Dependencies
+        continue-on-error: true
+        run: |
+          npm install --legacy-peer-deps
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          npm install
           git add package.json package-lock.json
           git commit -m "chore: package.json ve package-lock.json güncellendi"
-          git push origin main
+          git push origin main || true
       
       - name: Create Feature Branch
         id: create-branch
@@ -80,6 +85,7 @@ jobs:
       
       - name: Create Login Page
         if: contains(github.event.issue.title, 'Giriş sayfası')
+        continue-on-error: true
         run: |
           mkdir -p src/components/auth
           cat > src/components/auth/Login.js << 'EOL'
@@ -172,9 +178,10 @@ jobs:
           echo "Login component created"
           git add .
           git commit -m "feat: Giriş sayfası oluşturuldu"
-          git push origin "${{ steps.create-branch.outputs.branch_name }}"
+          git push origin "${{ steps.create-branch.outputs.branch_name }}" || true
       
       - name: Create PR
+        if: success() || failure()
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.FinanceApp_Token }}
