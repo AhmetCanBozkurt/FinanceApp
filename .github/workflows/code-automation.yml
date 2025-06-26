@@ -3,43 +3,41 @@ name: Code Automation
 on:
   issues:
     types: [opened, edited, labeled]
+  workflow_run:
+    workflows: ["Code Automation"]
+    types:
+      - completed
 
 jobs:
-  process-issue:
+  check-and-fix:
     runs-on: ubuntu-latest
-    if: contains(github.event.issue.labels.*.name, 'feature-request')
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
+    if: |
+      github.event_name == 'workflow_run' && 
+      github.event.workflow_run.conclusion == 'failure'
     steps:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
           token: ${{ secrets.FinanceApp_Token }}
       
-      - name: Debug Info
+      - name: Analyze Previous Run
+        id: analyze
         run: |
-          echo "Event name: ${{ github.event_name }}"
-          echo "Issue title: ${{ github.event.issue.title }}"
-          echo "Labels: ${{ toJson(github.event.issue.labels) }}"
-          ls -la
-          pwd
+          # Hata mesajını al
+          ERROR_LOG="${{ github.event.workflow_run.jobs[0].steps[*].conclusion }}"
+          
+          if echo "$ERROR_LOG" | grep -q "Dependencies lock file is not found"; then
+            echo "error_type=missing_lock_file" >> $GITHUB_OUTPUT
+          elif echo "$ERROR_LOG" | grep -q "package.json not found"; then
+            echo "error_type=missing_package_json" >> $GITHUB_OUTPUT
+          else
+            echo "error_type=unknown" >> $GITHUB_OUTPUT
+          fi
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '18'
-
-      - name: Clean npm cache and remove lock files
-        continue-on-error: true
+      - name: Fix Missing Files
+        if: steps.analyze.outputs.error_type == 'missing_lock_file' || steps.analyze.outputs.error_type == 'missing_package_json'
         run: |
-          npm cache clean --force
-          rm -f package-lock.json
-          rm -f yarn.lock
-      
-      - name: Create or Update package.json
-        run: |
+          # package.json oluştur
           echo '{
             "name": "finance-app",
             "version": "0.1.0",
@@ -64,124 +62,154 @@ jobs:
               "eject": "react-scripts eject"
             }
           }' > package.json
-      
-      - name: Install Dependencies
-        continue-on-error: true
-        run: |
+
+          # npm install çalıştır
           npm install --legacy-peer-deps
+
+          # Değişiklikleri commit et
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add package.json package-lock.json
-          git commit -m "chore: package.json ve package-lock.json güncellendi"
-          git push origin main || true
+          git commit -m "fix: Eksik package.json ve lock dosyası eklendi"
+          git push origin main
+
+      - name: Trigger Original Workflow
+        run: |
+          # Son issue'yu bul
+          ISSUE_NUMBER=$(gh api repos/${{ github.repository }}/issues?state=open --jq '.[0].number')
+          
+          # Issue'ya yorum ekle ve yeniden tetikle
+          gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments \
+            --raw-field body="🔄 Otomatik düzeltme yapıldı. Workflow yeniden başlatılıyor."
+          
+          # Label'ı kaldır ve tekrar ekle
+          gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER/labels/${{ github.event.label.name }} --method DELETE
+          gh api repos/${{ github.repository }}/issues/$ISSUE_NUMBER/labels \
+            --raw-field labels[]="feature-request"
+
+  process-issue:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'feature-request')) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.FinanceApp_Token }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
       
       - name: Create Feature Branch
         id: create-branch
         run: |
           BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr 'ı' 'i' | tr 'ş' 's' | tr 'ğ' 'g' | tr 'ü' 'u' | tr 'ö' 'o' | tr 'ç' 'c')"
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-          echo "Creating branch: $BRANCH_NAME"
           git checkout -b "$BRANCH_NAME"
       
-      - name: Create Login Page
-        if: contains(github.event.issue.title, 'Giriş sayfası')
-        continue-on-error: true
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+      
+      - name: Generate Code
         run: |
-          mkdir -p src/components/auth
-          cat > src/components/auth/Login.js << 'EOL'
-          import React, { useState } from 'react';
-          import { Box, Button, TextField, Typography, Container, Link } from '@mui/material';
+          if [[ "${{ github.event.issue.title }}" == *"Giriş sayfası"* ]]; then
+            mkdir -p src/components/auth
+            cat > src/components/auth/Login.js << 'EOL'
+            import React, { useState } from 'react';
+            import { Box, Button, TextField, Typography, Container, Link } from '@mui/material';
 
-          const Login = () => {
-            const [formData, setFormData] = useState({
-              email: '',
-              password: ''
-            });
-
-            const handleChange = (e) => {
-              setFormData({
-                ...formData,
-                [e.target.name]: e.target.value
+            const Login = () => {
+              const [formData, setFormData] = useState({
+                email: '',
+                password: ''
               });
-            };
 
-            const handleSubmit = (e) => {
-              e.preventDefault();
-              console.log('Form submitted:', formData);
-            };
+              const handleChange = (e) => {
+                setFormData({
+                  ...formData,
+                  [e.target.name]: e.target.value
+                });
+              };
 
-            return (
-              <Container component="main" maxWidth="xs">
-                <Box
-                  sx={{
-                    marginTop: 8,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Typography component="h1" variant="h5">
-                    Giriş Yap
-                  </Typography>
-                  <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-                    <TextField
-                      margin="normal"
-                      required
-                      fullWidth
-                      id="email"
-                      label="E-posta Adresi"
-                      name="email"
-                      autoComplete="email"
-                      autoFocus
-                      value={formData.email}
-                      onChange={handleChange}
-                    />
-                    <TextField
-                      margin="normal"
-                      required
-                      fullWidth
-                      name="password"
-                      label="Şifre"
-                      type="password"
-                      id="password"
-                      autoComplete="current-password"
-                      value={formData.password}
-                      onChange={handleChange}
-                    />
-                    <Button
-                      type="submit"
-                      fullWidth
-                      variant="contained"
-                      sx={{ mt: 3, mb: 2 }}
-                    >
+              const handleSubmit = (e) => {
+                e.preventDefault();
+                console.log('Form submitted:', formData);
+              };
+
+              return (
+                <Container component="main" maxWidth="xs">
+                  <Box
+                    sx={{
+                      marginTop: 8,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Typography component="h1" variant="h5">
                       Giriş Yap
-                    </Button>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Link href="#" variant="body2">
-                        Şifremi Unuttum
-                      </Link>
-                      <Box sx={{ mt: 1 }}>
+                    </Typography>
+                    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+                      <TextField
+                        margin="normal"
+                        required
+                        fullWidth
+                        id="email"
+                        label="E-posta Adresi"
+                        name="email"
+                        autoComplete="email"
+                        autoFocus
+                        value={formData.email}
+                        onChange={handleChange}
+                      />
+                      <TextField
+                        margin="normal"
+                        required
+                        fullWidth
+                        name="password"
+                        label="Şifre"
+                        type="password"
+                        id="password"
+                        autoComplete="current-password"
+                        value={formData.password}
+                        onChange={handleChange}
+                      />
+                      <Button
+                        type="submit"
+                        fullWidth
+                        variant="contained"
+                        sx={{ mt: 3, mb: 2 }}
+                      >
+                        Giriş Yap
+                      </Button>
+                      <Box sx={{ textAlign: 'center' }}>
                         <Link href="#" variant="body2">
-                          Hesabınız yok mu? Kayıt Ol
+                          Şifremi Unuttum
                         </Link>
+                        <Box sx={{ mt: 1 }}>
+                          <Link href="#" variant="body2">
+                            Hesabınız yok mu? Kayıt Ol
+                          </Link>
+                        </Box>
                       </Box>
                     </Box>
                   </Box>
-                </Box>
-              </Container>
-            );
-          };
+                </Container>
+              );
+            };
 
-          export default Login;
-          EOL
+            export default Login;
+            EOL
+          fi
 
-          echo "Login component created"
           git add .
-          git commit -m "feat: Giriş sayfası oluşturuldu"
-          git push origin "${{ steps.create-branch.outputs.branch_name }}" || true
+          git commit -m "feat: ${{ github.event.issue.title }} implementasyonu"
+          git push origin "${{ steps.create-branch.outputs.branch_name }}"
       
       - name: Create PR
-        if: success() || failure()
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.FinanceApp_Token }}
