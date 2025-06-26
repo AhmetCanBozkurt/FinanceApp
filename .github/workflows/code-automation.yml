@@ -16,10 +16,13 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
+          token: ${{ secrets.FinanceApp_Token }}
       
       - name: Create Feature Branch
         run: |
           BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
           git checkout -b $BRANCH_NAME
       
       - name: Setup Node.js
@@ -34,7 +37,7 @@ jobs:
       - name: Create PR
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.FinanceApp_Token }}
           commit-message: "feat: Implement ${{ github.event.issue.title }}"
           title: "✨ Feature: ${{ github.event.issue.title }}"
           body: |
