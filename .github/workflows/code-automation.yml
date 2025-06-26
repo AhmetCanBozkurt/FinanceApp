@@ -14,11 +14,9 @@ permissions:
   pull-requests: write
 
 jobs:
-  initial-setup:
+  process-issue:
     runs-on: ubuntu-latest
     if: github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'feature-request')
-    outputs:
-      needs_fix: ${{ steps.check_deps.outputs.needs_fix }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -29,32 +27,9 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: '18'
+          cache: 'npm'
       
-      - name: Check Dependencies
-        id: check_deps
-        run: |
-          if [ ! -f "package.json" ] || [ ! -f "package-lock.json" ]; then
-            echo "needs_fix=true" >> $GITHUB_OUTPUT
-          else
-            echo "needs_fix=false" >> $GITHUB_OUTPUT
-          fi
-
-  fix-dependencies:
-    needs: initial-setup
-    runs-on: ubuntu-latest
-    if: needs.initial-setup.outputs.needs_fix == 'true'
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.FINANCEAPP_TOKEN }}
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '18'
-      
-      - name: Fix Dependencies
+      - name: Create or Update package.json
         run: |
           if [ ! -f "package.json" ]; then
             echo "Creating package.json..."
@@ -84,39 +59,24 @@ jobs:
             }' > package.json
           fi
 
+      - name: Install Dependencies
+        run: |
+          echo "Cleaning npm cache..."
+          npm cache clean --force
+          
           echo "Installing dependencies..."
+          rm -f package-lock.json
           npm install --legacy-peer-deps
           
-          echo "Committing changes..."
+          echo "Committing dependency changes..."
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           git add package.json package-lock.json
-          git commit -m "fix: Dependencies added and lock file generated"
-          git push origin ${GITHUB_REF#refs/heads/}
+          git commit -m "chore: Dependencies updated"
+          git push origin HEAD:main
 
-  generate-code:
-    needs: [initial-setup, fix-dependencies]
-    if: |
-      always() &&
-      (needs.initial-setup.result == 'success' || needs.fix-dependencies.result == 'success') &&
-      github.event_name == 'issues' &&
-      contains(github.event.issue.title, 'Giriş sayfası')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.FINANCEAPP_TOKEN }}
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '18'
-      
-      - name: Install Dependencies
-        run: npm install --legacy-peer-deps
-      
       - name: Generate Login Page
+        if: contains(github.event.issue.title, 'Giriş sayfası')
         run: |
           mkdir -p src/components/auth
           cat > src/components/auth/Login.js << 'EOL'
@@ -206,11 +166,21 @@ jobs:
           export default Login;
           EOL
 
-          git add .
+          echo "Committing login page..."
+          git add src/components/auth/Login.js
           git commit -m "feat: Giriş sayfası oluşturuldu"
-          git push origin ${GITHUB_REF#refs/heads/}
+          git push origin HEAD:main
 
-      - name: Create PR
+      - name: Create Feature Branch and PR
+        if: success()
+        run: |
+          # Create and switch to feature branch
+          BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr 'ı' 'i' | tr 'ş' 's' | tr 'ğ' 'g' | tr 'ü' 'u' | tr 'ö' 'o' | tr 'ç' 'c')"
+          git checkout -b "$BRANCH_NAME"
+          git push origin "$BRANCH_NAME"
+
+      - name: Create Pull Request
+        if: success()
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.FINANCEAPP_TOKEN }}
