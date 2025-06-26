@@ -1,0 +1,51 @@
+name: Code Automation
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  process-issue:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'feature-request')
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Create Feature Branch
+        run: |
+          BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
+          git checkout -b $BRANCH_NAME
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '7.0.x'
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+      
+      - name: Implement Changes
+        run: |
+          # Burada Cursor Agent API'sini kullanarak kod değişikliklerini yapabilirsiniz
+          # Örnek: curl -X POST api.cursor.sh/v1/changes -d @issue.json
+          
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "feat: Implement ${{ github.event.issue.title }}"
+          title: "✨ Feature: ${{ github.event.issue.title }}"
+          body: |
+            Closes #${{ github.event.issue.number }}
+            
+            ## 📝 Implementation Details
+            ${{ github.event.issue.body }}
+            
+            ## 🔍 Review Points
+            - [ ] Feature requirements met
+            - [ ] Tests added
+            - [ ] Documentation updated
+          branch: feature/automated-changes
+          base: main 

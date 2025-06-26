@@ -1,0 +1,42 @@
+name: PR Automation
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - master
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      
+      - name: Create or Update PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "feat: Automated PR for recent changes"
+          title: "🤖 Automated PR: Recent Changes"
+          body: |
+            ## 🔄 Automated Pull Request
+            
+            ### 📝 Changes include:
+            ${{ github.event.head_commit.message }}
+            
+            ### 🔍 Review Points:
+            - [ ] Code follows project standards
+            - [ ] Tests are included and passing
+            - [ ] Documentation is updated
+            
+            ### 📦 Changed Files:
+            ```diff
+            ${{ steps.file-changes.outputs.files }}
+            ```
+          branch: feature/automated-changes
+          base: main
+          labels: |
+            automated-pr
+            needs-review 
