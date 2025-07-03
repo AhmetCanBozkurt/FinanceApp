@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: |
           echo "Installing dependencies..."
-          npm install --no-package-lock
+          npm ci
           echo "Dependencies installed successfully"
 
       - name: Create Feature Branch
