@@ -44,145 +44,176 @@ jobs:
         if: contains(github.event.issue.title, 'Giriş sayfası') || contains(github.event.issue.title, 'login')
         run: |
           mkdir -p src/components/auth
-          cat > src/components/auth/Login.js << 'EOL'
-          import React, { useState } from 'react';
-          import { Box, Button, TextField, Typography, Container, Link } from '@mui/material';
+          cat > src/components/auth/Login.jsx << 'EOL'
+          import { useState } from 'react'
 
           const Login = () => {
             const [formData, setFormData] = useState({
               email: '',
               password: ''
-            });
+            })
 
             const handleChange = (e) => {
               setFormData({
                 ...formData,
                 [e.target.name]: e.target.value
-              });
-            };
+              })
+            }
 
             const handleSubmit = (e) => {
-              e.preventDefault();
-              console.log('Form submitted:', formData);
-            };
+              e.preventDefault()
+              console.log('Form submitted:', formData)
+            }
 
             return (
-              <Container component="main" maxWidth="xs">
-                <Box
-                  sx={{
-                    marginTop: 8,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Typography component="h1" variant="h5">
-                    Giriş Yap
-                  </Typography>
-                  <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-                    <TextField
-                      margin="normal"
-                      required
-                      fullWidth
-                      id="email"
-                      label="E-posta Adresi"
-                      name="email"
-                      autoComplete="email"
-                      autoFocus
-                      value={formData.email}
-                      onChange={handleChange}
-                    />
-                    <TextField
-                      margin="normal"
-                      required
-                      fullWidth
-                      name="password"
-                      label="Şifre"
-                      type="password"
-                      id="password"
-                      autoComplete="current-password"
-                      value={formData.password}
-                      onChange={handleChange}
-                    />
-                    <Button
-                      type="submit"
-                      fullWidth
-                      variant="contained"
-                      sx={{ mt: 3, mb: 2 }}
-                    >
+              <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-md w-full space-y-8">
+                  <div>
+                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
                       Giriş Yap
-                    </Button>
-                    <Box sx={{ textAlign: 'center' }}>
-                      <Link href="#" variant="body2">
-                        Şifremi Unuttum
-                      </Link>
-                      <Box sx={{ mt: 1 }}>
-                        <Link href="#" variant="body2">
+                    </h2>
+                  </div>
+                  <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                    <div className="rounded-md shadow-sm -space-y-px">
+                      <div>
+                        <label htmlFor="email" className="sr-only">
+                          E-posta Adresi
+                        </label>
+                        <input
+                          id="email"
+                          name="email"
+                          type="email"
+                          required
+                          className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                          placeholder="E-posta Adresi"
+                          value={formData.email}
+                          onChange={handleChange}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="password" className="sr-only">
+                          Şifre
+                        </label>
+                        <input
+                          id="password"
+                          name="password"
+                          type="password"
+                          required
+                          className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                          placeholder="Şifre"
+                          value={formData.password}
+                          onChange={handleChange}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <button
+                        type="submit"
+                        className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      >
+                        Giriş Yap
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm">
+                        <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+                          Şifremi Unuttum
+                        </a>
+                      </div>
+                      <div className="text-sm">
+                        <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
                           Hesabınız yok mu? Kayıt Ol
-                        </Link>
-                      </Box>
-                    </Box>
-                  </Box>
-                </Box>
-              </Container>
-            );
-          };
+                        </a>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )
+          }
 
-          export default Login;
+          export default Login
           EOL
 
-          git add src/components/auth/Login.js || echo "Failed to add Login.js, but continuing..."
-          git commit -m "feat: Giriş sayfası oluşturuldu - Issue #${{ github.event.issue.number }}" || echo "Failed to commit Login.js, but continuing..."
-
-      - name: Generate Dashboard
-        if: contains(github.event.issue.title, 'Dashboard') || contains(github.event.issue.title, 'Ana sayfa')
-        run: |
-          mkdir -p src/components/dashboard
-          cat > src/components/dashboard/Dashboard.js << 'EOL'
-          import React from 'react';
-          import { Grid, Paper, Typography, Box } from '@mui/material';
-
-          const Dashboard = () => {
-            return (
-              <Box sx={{ flexGrow: 1, p: 3 }}>
-                <Typography variant="h4" gutterBottom>
-                  Dashboard
-                </Typography>
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6} lg={3}>
-                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-                      <Typography variant="h6">Toplam Gelir</Typography>
-                      <Typography variant="h4" color="primary">₺0</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12} md={6} lg={3}>
-                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-                      <Typography variant="h6">Toplam Gider</Typography>
-                      <Typography variant="h4" color="error">₺0</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12} md={6} lg={3}>
-                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-                      <Typography variant="h6">Net Bakiye</Typography>
-                      <Typography variant="h4" color="success">₺0</Typography>
-                    </Paper>
-                  </Grid>
-                  <Grid item xs={12} md={6} lg={3}>
-                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-                      <Typography variant="h6">Bu Ay</Typography>
-                      <Typography variant="h4">₺0</Typography>
-                    </Paper>
-                  </Grid>
-                </Grid>
-              </Box>
-            );
-          };
-
-          export default Dashboard;
+          # Update package.json for Vite and Tailwind
+          cat > package.json << 'EOL'
+          {
+            "name": "finance-app",
+            "private": true,
+            "version": "0.1.0",
+            "type": "module",
+            "scripts": {
+              "dev": "vite",
+              "build": "vite build",
+              "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+              "preview": "vite preview"
+            },
+            "dependencies": {
+              "react": "^18.2.0",
+              "react-dom": "^18.2.0"
+            },
+            "devDependencies": {
+              "@types/react": "^18.2.43",
+              "@types/react-dom": "^18.2.17",
+              "@vitejs/plugin-react": "^4.2.1",
+              "autoprefixer": "^10.4.16",
+              "eslint": "^8.55.0",
+              "eslint-plugin-react": "^7.33.2",
+              "eslint-plugin-react-hooks": "^4.6.0",
+              "eslint-plugin-react-refresh": "^0.4.5",
+              "postcss": "^8.4.32",
+              "tailwindcss": "^3.4.0",
+              "vite": "^5.0.8"
+            }
+          }
           EOL
 
-          git add src/components/dashboard/Dashboard.js || echo "Failed to add Dashboard.js, but continuing..."
-          git commit -m "feat: Dashboard komponenti oluşturuldu - Issue #${{ github.event.issue.number }}" || echo "Failed to commit Dashboard.js, but continuing..."
+          # Create Vite config
+          cat > vite.config.js << 'EOL'
+          import { defineConfig } from 'vite'
+          import react from '@vitejs/plugin-react'
+
+          export default defineConfig({
+            plugins: [react()],
+          })
+          EOL
+
+          # Create Tailwind config
+          cat > tailwind.config.js << 'EOL'
+          /** @type {import('tailwindcss').Config} */
+          export default {
+            content: [
+              "./index.html",
+              "./src/**/*.{js,ts,jsx,tsx}",
+            ],
+            theme: {
+              extend: {},
+            },
+            plugins: [],
+          }
+          EOL
+
+          # Create PostCSS config
+          cat > postcss.config.js << 'EOL'
+          export default {
+            plugins: {
+              tailwindcss: {},
+              autoprefixer: {},
+            },
+          }
+          EOL
+
+          # Create index.css with Tailwind directives
+          cat > src/index.css << 'EOL'
+          @tailwind base;
+          @tailwind components;
+          @tailwind utilities;
+          EOL
+
+          git add . || echo "Failed to add files, but continuing..."
+          git commit -m "feat: Giriş sayfası oluşturuldu (React + Vite + Tailwind) - Issue #${{ github.event.issue.number }}" || echo "Failed to commit files, but continuing..."
 
       - name: Push Changes and Create PR
         run: |
@@ -208,9 +239,4 @@ jobs:
             - [ ] Code follows project standards
             
             ## 🎯 Related Issue
-            Issue: #${{ github.event.issue.number }}
-          branch: ${{ env.BRANCH_NAME }}
-          base: main
-          labels: |
-            automated-pr
-            feature-request 
+            Issue: #${{ github.event.issue.number }} 
