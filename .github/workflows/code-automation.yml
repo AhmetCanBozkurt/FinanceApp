@@ -3,10 +3,6 @@ name: Code Automation
 on:
   issues:
     types: [opened, edited, labeled]
-  workflow_run:
-    workflows: ["Code Automation"]
-    types:
-      - completed
 
 permissions:
   contents: write
@@ -18,65 +14,22 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'feature-request')
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.FINANCEAPP_TOKEN }}
+          token: ${{ secrets.FINANCE_APP }}
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '18'
-          cache: 'npm'
-      
-      - name: Create or Update package.json
+      - name: Create Feature Branch
         run: |
-          if [ ! -f "package.json" ]; then
-            echo "Creating package.json..."
-            echo '{
-              "name": "finance-app",
-              "version": "0.1.0",
-              "private": true,
-              "dependencies": {
-                "@testing-library/jest-dom": "^5.17.0",
-                "@testing-library/react": "^13.4.0",
-                "@testing-library/user-event": "^13.5.0",
-                "react": "^18.2.0",
-                "react-dom": "^18.2.0",
-                "react-scripts": "5.0.1",
-                "web-vitals": "^2.1.4",
-                "@mui/material": "^5.15.11",
-                "@mui/icons-material": "^5.15.11",
-                "@emotion/react": "^11.11.3",
-                "@emotion/styled": "^11.11.0"
-              },
-              "scripts": {
-                "start": "react-scripts start",
-                "build": "react-scripts build",
-                "test": "react-scripts test",
-                "eject": "react-scripts eject"
-              }
-            }' > package.json
-          fi
-
-      - name: Install Dependencies
-        run: |
-          echo "Cleaning npm cache..."
-          npm cache clean --force
-          
-          echo "Installing dependencies..."
-          rm -f package-lock.json
-          npm install --legacy-peer-deps
-          
-          echo "Committing dependency changes..."
+          # Create feature branch name from issue title
+          BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr 'ı' 'i' | tr 'ş' 's' | tr 'ğ' 'g' | tr 'ü' 'u' | tr 'ö' 'o' | tr 'ç' 'c')"
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          git add package.json package-lock.json
-          git commit -m "chore: Dependencies updated"
-          git push origin HEAD:main
+          git checkout -b "$BRANCH_NAME"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Generate Login Page
-        if: contains(github.event.issue.title, 'Giriş sayfası')
+        if: contains(github.event.issue.title, 'Giriş sayfası') || contains(github.event.issue.title, 'login')
         run: |
           mkdir -p src/components/auth
           cat > src/components/auth/Login.js << 'EOL'
@@ -166,24 +119,67 @@ jobs:
           export default Login;
           EOL
 
-          echo "Committing login page..."
           git add src/components/auth/Login.js
-          git commit -m "feat: Giriş sayfası oluşturuldu"
-          git push origin HEAD:main
+          git commit -m "feat: Giriş sayfası oluşturuldu - Issue #${{ github.event.issue.number }}"
 
-      - name: Create Feature Branch and PR
-        if: success()
+      - name: Generate Dashboard
+        if: contains(github.event.issue.title, 'Dashboard') || contains(github.event.issue.title, 'Ana sayfa')
         run: |
-          # Create and switch to feature branch
-          BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr 'ı' 'i' | tr 'ş' 's' | tr 'ğ' 'g' | tr 'ü' 'u' | tr 'ö' 'o' | tr 'ç' 'c')"
-          git checkout -b "$BRANCH_NAME"
-          git push origin "$BRANCH_NAME"
+          mkdir -p src/components/dashboard
+          cat > src/components/dashboard/Dashboard.js << 'EOL'
+          import React from 'react';
+          import { Grid, Paper, Typography, Box } from '@mui/material';
 
+          const Dashboard = () => {
+            return (
+              <Box sx={{ flexGrow: 1, p: 3 }}>
+                <Typography variant="h4" gutterBottom>
+                  Dashboard
+                </Typography>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6} lg={3}>
+                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant="h6">Toplam Gelir</Typography>
+                      <Typography variant="h4" color="primary">₺0</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={12} md={6} lg={3}>
+                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant="h6">Toplam Gider</Typography>
+                      <Typography variant="h4" color="error">₺0</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={12} md={6} lg={3}>
+                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant="h6">Net Bakiye</Typography>
+                      <Typography variant="h4" color="success">₺0</Typography>
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={12} md={6} lg={3}>
+                    <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant="h6">Bu Ay</Typography>
+                      <Typography variant="h4">₺0</Typography>
+                    </Paper>
+                  </Grid>
+                </Grid>
+              </Box>
+            );
+          };
+
+          export default Dashboard;
+          EOL
+
+          git add src/components/dashboard/Dashboard.js
+          git commit -m "feat: Dashboard komponenti oluşturuldu - Issue #${{ github.event.issue.number }}"
+
+      - name: Push Changes and Create PR
+        run: |
+          git push origin ${{ env.BRANCH_NAME }}
+          
       - name: Create Pull Request
-        if: success()
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.FINANCEAPP_TOKEN }}
+          token: ${{ secrets.FINANCE_APP }}
           commit-message: "feat: ${{ github.event.issue.title }} implementasyonu"
           title: "✨ Feature: ${{ github.event.issue.title }}"
           body: |
@@ -194,7 +190,15 @@ jobs:
             
             ## 🔍 Review Points
             - [ ] Feature requirements met
-            - [ ] Tests added
-            - [ ] Documentation updated
-          branch: "feature/${{ github.event.issue.title }}"
-          base: main 
+            - [ ] Component functionality tested
+            - [ ] UI/UX design approved
+            - [ ] Code follows project standards
+            
+            ## 🎯 Related Issue
+            Issue: #${{ github.event.issue.number }}
+          branch: ${{ env.BRANCH_NAME }}
+          base: main
+          labels: |
+            automated-pr
+            needs-review
+            feature 

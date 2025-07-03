@@ -1,0 +1,59 @@
+name: 🚀 Feature Request
+description: Yeni özellik talebi
+title: "[FEATURE] "
+labels: [feature-request]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🚀 Yeni Özellik Talebi
+        Projeye eklemek istediğiniz özelliği detaylı olarak açıklayın.
+
+  - type: input
+    id: feature-title
+    attributes:
+      label: Özellik Başlığı
+      description: Özelliğin kısa ve açıklayıcı başlığı
+      placeholder: "Örn: Kullanıcı giriş sayfası"
+    validations:
+      required: true
+
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Özellik Açıklaması
+      description: Özelliğin ne yapması gerektiğini detaylı olarak açıklayın
+      placeholder: "Bu özellik..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component-type
+    attributes:
+      label: Bileşen Tipi
+      description: Hangi tip bileşen oluşturulacak?
+      options:
+        - Sayfa (Page)
+        - Bileşen (Component)
+        - Utility (Yardımcı)
+        - API Integration
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: requirements
+    attributes:
+      label: Gereksinimler
+      description: Bu özellik için gerekenler
+      options:
+        - label: Material-UI bileşenleri kullanılacak
+        - label: Responsive tasarım olacak
+        - label: Test yazılacak
+        - label: TypeScript kullanılacak
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Ek Bilgiler
+      description: Varsa ek açıklamalar, mockup'lar veya referanslar
+      placeholder: "Ek bilgiler..." 

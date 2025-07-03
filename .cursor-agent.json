@@ -2,10 +2,9 @@
   "project": {
     "name": "FinanceApp",
     "repository": "https://github.com/AhmetCanBozkurt/FinanceApp",
-    "type": "fullstack",
+    "type": "frontend",
     "technologies": {
-      "backend": [".NET Core", "MSSQL"],
-      "frontend": ["React", "TypeScript"]
+      "frontend": ["React", "JavaScript", "Material-UI"]
     }
   },
   "automation": {
@@ -22,9 +21,21 @@
     },
     "codeGeneration": {
       "patterns": {
-        "controller": "backend/FinanceApp.API/Controllers",
-        "model": "backend/FinanceApp.Core/Models",
-        "component": "frontend/src/components"
+        "component": "src/components",
+        "pages": "src/pages",
+        "utils": "src/utils"
+      }
+    },
+    "issueHandling": {
+      "labels": {
+        "feature": "feature-request",
+        "bug": "bug",
+        "enhancement": "enhancement"
+      },
+      "autoAssign": true,
+      "templates": {
+        "component": "src/components/{name}",
+        "page": "src/pages/{name}"
       }
     }
   }

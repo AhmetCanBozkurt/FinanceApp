@@ -13,20 +13,24 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.FinanceApp_Token }}
+          token: ${{ secrets.FINANCE_APP }}
       
       - name: Get changed files
         id: file-changes
         run: |
-          echo "files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          if [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            echo "files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          else
+            echo "files=$(git diff --name-only HEAD~1 HEAD | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          fi
       
       - name: Create or Update PR
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.FinanceApp_Token }}
+          token: ${{ secrets.FINANCE_APP }}
           commit-message: "feat: Automated PR for recent changes"
           title: "🤖 Automated PR: Recent Changes"
           body: |
@@ -39,11 +43,14 @@ jobs:
             - [ ] Code follows project standards
             - [ ] Tests are included and passing
             - [ ] Documentation is updated
+            - [ ] No breaking changes introduced
             
             ### 📦 Changed Files:
             ```
             ${{ steps.file-changes.outputs.files }}
             ```
+            
+            ### 🚀 Branch: `${{ github.ref_name }}`
           branch: ${{ github.ref_name }}
           base: main
           labels: |

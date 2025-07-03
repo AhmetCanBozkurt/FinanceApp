@@ -14,25 +14,36 @@ jobs:
   cursor-agent:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: '7.0.x'
-
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --coverage --watchAll=false
+
+      - name: Build project
+        run: npm run build
+
+      - name: Get changed files
+        id: file-changes
+        if: github.event_name == 'push'
+        run: |
+          echo "files=$(git diff --name-only HEAD~1 HEAD | tr '\n' ' ')" >> $GITHUB_OUTPUT
 
       - name: Create PR
         if: github.event_name == 'push' && !startsWith(github.ref, 'refs/heads/main')
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.FINANCE_APP }}
           commit-message: "feat: Automated changes by Cursor Agent"
           title: "🤖 Automated PR: Latest Changes"
           body: |
@@ -40,9 +51,20 @@ jobs:
             
             Changes made by Cursor Agent based on recent commits.
             
-            ### Changed Files:
-            ```diff
+            ### 📝 Latest Commit:
+            ${{ github.event.head_commit.message }}
+            
+            ### 🔍 Review Points:
+            - [ ] Code quality maintained
+            - [ ] Tests passing
+            - [ ] Build successful
+            
+            ### 📦 Changed Files:
+            ```
             ${{ steps.file-changes.outputs.files }}
             ```
           branch: cursor-agent/changes
-          base: main 
+          base: main
+          labels: |
+            automated-pr
+            cursor-agent 
