@@ -13,6 +13,8 @@ on:
 jobs:
   cursor-agent:
     runs-on: ubuntu-latest
+    env:
+      CI: true
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,18 +28,18 @@ jobs:
       - name: Install dependencies
         run: |
           echo "Installing dependencies..."
-          npm install --no-package-lock
+          npm install --legacy-peer-deps --no-package-lock
           echo "Dependencies installed successfully"
 
       - name: Run tests
         run: |
           echo "Running tests..."
-          npm test -- --coverage --watchAll=false || echo "Tests failed but continuing..."
+          CI=true npm test || echo "Tests failed but continuing..."
 
       - name: Build project
         run: |
           echo "Building project..."
-          npm run build || echo "Build failed but continuing..."
+          CI=true npm run build || echo "Build failed but continuing..."
 
       - name: Get changed files
         id: file-changes
