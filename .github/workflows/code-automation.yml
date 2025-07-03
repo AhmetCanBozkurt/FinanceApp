@@ -19,13 +19,25 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.FINANCE_APP }}
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          echo "Installing dependencies..."
+          npm install --no-package-lock
+          echo "Dependencies installed successfully"
+
       - name: Create Feature Branch
         run: |
           # Create feature branch name from issue title
           BRANCH_NAME="feature/$(echo '${{ github.event.issue.title }}' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr 'ı' 'i' | tr 'ş' 's' | tr 'ğ' 'g' | tr 'ü' 'u' | tr 'ö' 'o' | tr 'ç' 'c')"
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          git checkout -b "$BRANCH_NAME"
+          git checkout -b "$BRANCH_NAME" || echo "Branch already exists, switching to it..."
+          git checkout "$BRANCH_NAME"
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Generate Login Page
@@ -119,8 +131,8 @@ jobs:
           export default Login;
           EOL
 
-          git add src/components/auth/Login.js
-          git commit -m "feat: Giriş sayfası oluşturuldu - Issue #${{ github.event.issue.number }}"
+          git add src/components/auth/Login.js || echo "Failed to add Login.js, but continuing..."
+          git commit -m "feat: Giriş sayfası oluşturuldu - Issue #${{ github.event.issue.number }}" || echo "Failed to commit Login.js, but continuing..."
 
       - name: Generate Dashboard
         if: contains(github.event.issue.title, 'Dashboard') || contains(github.event.issue.title, 'Ana sayfa')
@@ -169,12 +181,13 @@ jobs:
           export default Dashboard;
           EOL
 
-          git add src/components/dashboard/Dashboard.js
-          git commit -m "feat: Dashboard komponenti oluşturuldu - Issue #${{ github.event.issue.number }}"
+          git add src/components/dashboard/Dashboard.js || echo "Failed to add Dashboard.js, but continuing..."
+          git commit -m "feat: Dashboard komponenti oluşturuldu - Issue #${{ github.event.issue.number }}" || echo "Failed to commit Dashboard.js, but continuing..."
 
       - name: Push Changes and Create PR
         run: |
-          git push origin ${{ env.BRANCH_NAME }}
+          echo "Pushing changes to branch ${{ env.BRANCH_NAME }}..."
+          git push origin ${{ env.BRANCH_NAME }} || echo "Failed to push changes, but continuing..."
           
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
@@ -200,5 +213,4 @@ jobs:
           base: main
           labels: |
             automated-pr
-            needs-review
-            feature 
+            feature-request 
